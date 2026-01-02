@@ -4,6 +4,8 @@ import './App.css'
 function App() {
   const [expression, setExpression] = useState<string>('0');
   const [isResult, setIsResult] = useState<boolean>(false);
+  const [beforeFlipped, setBeforeFlipped] = useState<string>('');
+  const [isFlipped, setIsFlipped] = useState<boolean>(false);
   const operators: string[] = ['+', '-', '×', '÷', '%'];
 
   const handleInput = (input: string) => {
@@ -19,23 +21,24 @@ function App() {
       const lastChar: string = prev[prev.length - 1];
       const secondLastChar: string = prev[prev.length - 2];
       
-      if (operators.includes(input) && input !== '-') {
-        if (prev === '-') {
-          return '0';
+      if (operators.includes(input)) {
+        setIsFlipped(false);
+        if (input !== '-') {
+          if (prev === '-') {
+            return '0';
+          }
+          if (lastChar === '-' && operators.includes(secondLastChar)) {
+            return prev.slice(0, -2) + input;
+          }
+          if (operators.includes(lastChar)) {
+            return prev.slice(0, -1) + input;
+          }
+        } else if (input === '-') {
+          if (prev === '0') return input;
+          // prevent --
+          if (lastChar === '-') return prev;
+          return prev + input;
         }
-        if (lastChar === '-' && operators.includes(secondLastChar)) {
-          return prev.slice(0, -2) + input;
-        }
-        if (operators.includes(lastChar)) {
-          return prev.slice(0, -1) + input;
-        }
-      }
-
-      if (input === '-') {
-        if (prev === '0') return input;
-        // prevent --
-        if (lastChar === '-') return prev; 
-        return prev + input;
       }
 
       // handle decimal
@@ -43,7 +46,7 @@ function App() {
         // prevent continuous decimal a..b
         if (lastChar === '.') return prev;
 
-        const tokens: string[] = prev.split(/(\+|-|÷|\%|×)/);
+        const tokens: string[] = prev.split(/(\+|-|÷|%|×)/);
         const lastNumber: string = tokens[tokens.length - 1];
 
         // prevent multiple decimal a.b.c
@@ -60,8 +63,14 @@ function App() {
   }
 
   const handleSign = () => {
+    if (isFlipped) {
+      setExpression(beforeFlipped);
+      setIsFlipped(false);
+      return;
+    }
     setExpression(prev => {
-      const tokens: string[] = prev.split(/(\+|-|÷|\%|×)/);
+      setBeforeFlipped(prev);
+      const tokens: string[] = prev.split(/(\+|-|÷|%|×)/);
       const lastNumber: string = tokens[tokens.length - 1];
       if (isNaN(+lastNumber)) return prev;
       if (!lastNumber || lastNumber === '0') return prev;
@@ -70,12 +79,13 @@ function App() {
         : '-' + lastNumber;
       const newTokens: string[] = [...tokens];
       newTokens[newTokens.length - 1] = toggledNumber;
+      setIsFlipped(true);
       return newTokens.join('');
     });
   }
 
   const handleEqual = () => {
-    let rawTokens: string[] = expression.split(/(\+|-|÷|\%|×)/)
+    const rawTokens: string[] = expression.split(/(\+|-|÷|%|×)/)
       .filter(t => t.trim() !== "");
 
     const processedTokens: string[] = [];
@@ -102,8 +112,9 @@ function App() {
       const result: number = calculatePostfix(postfix);
       setExpression(String(+result.toFixed(6)));
       setIsResult(true);
+      setIsFlipped(false);
     } catch (error) {
-      setExpression("Error");
+      setExpression("Error: " + error);
     }
   }
 
@@ -150,6 +161,8 @@ function App() {
 
   const handleBackspace = () => { 
     setIsResult(false);
+    setIsFlipped(false);
+
     if (expression.length == 1) setExpression('0');
     else if (expression !== '0' && expression.length)
       setExpression(expression.slice(0, -1));
